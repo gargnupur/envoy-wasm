@@ -22,6 +22,47 @@ namespace Envoy {
 namespace Extensions {
 namespace ListenerFilters {
 namespace TlsInspector {
+namespace {
+const uint16_t kCustomExtensionValue = 1234;
+const char kCustomExtensionContents[] = "custom extension";
+/*static void *const kCustomExtensionAddArg =
+    reinterpret_cast<void *>(kCustomExtensionValue);
+static void *const kCustomExtensionParseArg =
+    reinterpret_cast<void *>(kCustomExtensionValue + 1);*/
+}
+
+/*static int CustomExtensionAddCallback(SSL , unsigned extension_value,
+                                      const uint8_t **out, size_t *out_len,
+                                      int , void *add_arg) {
+  if (extension_value != kCustomExtensionValue ||
+      add_arg != kCustomExtensionAddArg) {
+    abort();
+  }
+
+  *out = reinterpret_cast<const uint8_t*>(kCustomExtensionContents);
+  *out_len = sizeof(kCustomExtensionContents) - 1;
+
+  return 1;
+}
+
+static int CustomExtensionParseCallback(SSL *ssl, unsigned extension_value,
+                                        const uint8_t *contents,
+                                        size_t contents_len,
+                                        int *out_alert_value, void *parse_arg) {
+  if (extension_value != kCustomExtensionValue ||
+      parse_arg != kCustomExtensionParseArg) {
+    abort();
+  }
+
+  if (contents_len != sizeof(kCustomExtensionContents) - 1 ||
+      memcmp(contents, kCustomExtensionContents, contents_len) != 0) {
+    *out_alert_value = SSL_AD_DECODE_ERROR;
+    return 0;
+  }
+
+  return 1;
+}*/
+
 
 Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
@@ -55,7 +96,58 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
         *out_alert = SSL_AD_USER_CANCELLED;
         return SSL_TLSEXT_ERR_ALERT_FATAL;
       });
+  SSL_CTX_add_client_custom_ext(
+          ssl_ctx_.get(),  kCustomExtensionValue, [](SSL* , unsigned extension_value,
+                                      const uint8_t **out, size_t *out_len,
+                                      int , void *)-> int {
+              if (extension_value != kCustomExtensionValue) {
+                abort();
+              }
+
+              *out = reinterpret_cast<const uint8_t*>(kCustomExtensionContents);
+              *out_len = sizeof(kCustomExtensionContents) - 1;
+              return 1;
+            },
+          nullptr, nullptr,
+          [](SSL *ssl, unsigned extension_value,
+                                        const uint8_t *contents,
+                                        size_t contents_len,
+                                        int *, void *) ->int {
+            if (extension_value != kCustomExtensionValue) {
+              abort();
+            }
+            Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+            return filter->onClientData(contents,contents_len);
+
+            }, nullptr
+  );
+  SSL_CTX_add_server_custom_ext(
+          ssl_ctx_.get(),  kCustomExtensionValue, [](SSL* , unsigned extension_value,
+                                      const uint8_t **out, size_t *out_len,
+                                      int , void *)-> int {
+              if (extension_value != kCustomExtensionValue) {
+                abort();
+              }
+
+              *out = reinterpret_cast<const uint8_t*>(kCustomExtensionContents);
+              *out_len = sizeof(kCustomExtensionContents) - 1;
+              return 1;
+            }, nullptr, nullptr,
+          [](SSL *ssl, unsigned extension_value,
+                                        const uint8_t *contents,
+                                        size_t contents_len,
+                                        int *, void *) ->int {
+            if (extension_value != kCustomExtensionValue) {
+              abort();
+            }
+            Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+            return filter->onServerData(contents,contents_len);
+
+            }, nullptr
+            );
 }
+
+
 
 bssl::UniquePtr<SSL> Config::newSsl() { return bssl::UniquePtr<SSL>{SSL_new(ssl_ctx_.get())}; }
 
@@ -120,6 +212,21 @@ void Filter::onServername(absl::string_view name) {
     config_->stats().sni_not_found_.inc();
   }
   clienthello_success_ = true;
+}
+
+
+int Filter::onClientData(const uint8_t *contents,
+                                        size_t contents_len) {
+  ENVOY_LOG(info, "onClientData, data: {}, length {}", contents, contents_len);
+  client_data_found_ = true;
+  return 1;
+}
+
+int Filter::onServerData(const uint8_t *contents,
+                                        size_t contents_len) {
+  ENVOY_LOG(info, "onServerData, data: {}, length {}", contents, contents_len);
+  server_data_found_ = true;
+  return 1;
 }
 
 void Filter::onRead() {
@@ -195,6 +302,16 @@ void Filter::parseClientHello(const void* data, size_t len) {
         config_->stats().alpn_found_.inc();
       } else {
         config_->stats().alpn_not_found_.inc();
+      }
+      if(client_data_found_){
+        config_->stats().client_data_found_.inc();
+      } else {
+        config_->stats().client_data_not_found_.inc();
+      }
+      if(server_data_found_){
+        config_->stats().server_data_found_.inc();
+      } else {
+        config_->stats().server_data_not_found_.inc();
       }
       cb_->socket().setDetectedTransportProtocol(TransportSockets::TransportSocketNames::get().Tls);
     } else {
