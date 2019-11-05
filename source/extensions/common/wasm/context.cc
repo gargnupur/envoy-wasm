@@ -343,7 +343,7 @@ WasmResult serializeValue(Filters::Common::Expr::CelValue value, std::string* re
 // An expression wrapper for the WASM state
 class WasmStateWrapper : public google::api::expr::runtime::CelMap {
 public:
-  WasmStateWrapper(const StreamInfo::FilterState& filter_state) : filter_state_(filter_state) {}
+  WasmStateWrapper(const StreamInfo::FilterState& filter_state, const StreamInfo::FilterState* upstream_filter_state) : filter_state_(filter_state),upstream_filter_state_(upstream_filter_state) {}
   absl::optional<google::api::expr::runtime::CelValue>
   operator[](google::api::expr::runtime::CelValue key) const override {
     if (!key.IsString()) {
@@ -354,6 +354,10 @@ public:
       const WasmState& result = filter_state_.getDataReadOnly<WasmState>(value);
       return google::api::expr::runtime::CelValue::CreateBytes(&result.value());
     } catch (const EnvoyException& e) {
+      if(upstream_filter_state_){
+        const WasmState& result = upstream_filter_state_->getDataReadOnly<WasmState>(value);
+        return google::api::expr::runtime::CelValue::CreateBytes(&result.value());
+      }
       return {};
     }
   }
@@ -365,6 +369,7 @@ public:
 
 private:
   const StreamInfo::FilterState& filter_state_;
+  const StreamInfo::FilterState* upstream_filter_state_;
 };
 
 #define PROPERTY_TOKENS(_f)                                                                        \
@@ -428,7 +433,7 @@ WasmResult Context::getProperty(absl::string_view path, std::string* result) {
         break;
       case PropertyToken::FILTER_STATE:
         value = CelValue::CreateMap(
-            Protobuf::Arena::Create<WasmStateWrapper>(&arena, info->filterState()));
+            Protobuf::Arena::Create<WasmStateWrapper>(&arena, info->filterState(), info->upstreamFilterState()));
         break;
       case PropertyToken::REQUEST:
         value = CelValue::CreateMap(Protobuf::Arena::Create<Filters::Common::Expr::RequestWrapper>(

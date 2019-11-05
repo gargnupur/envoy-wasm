@@ -223,6 +223,7 @@ TcpProxyStats Config::SharedConfig::generateStats(Stats::Scope& scope) {
 }
 
 void Filter::initializeReadFilterCallbacks(Network::ReadFilterCallbacks& callbacks) {
+  ENVOY_CONN_LOG(info,"initializeReadFilterCallbacks ", callbacks.connection());
   initialize(callbacks, true);
 }
 
@@ -465,6 +466,9 @@ void Filter::onPoolReady(Tcp::ConnectionPool::ConnectionDataPtr&& conn_data,
   getStreamInfo().onUpstreamHostSelected(host);
   getStreamInfo().setUpstreamLocalAddress(connection.localAddress());
   getStreamInfo().setUpstreamSslConnection(connection.streamInfo().downstreamSslConnection());
+  ENVOY_CONN_LOG(info, "onPoolReady setting filterstate", read_callbacks_->connection());
+  ENVOY_CONN_LOG(info, "onPoolReady connection", connection);
+  read_callbacks_->connection().streamInfo().setUpstreamFilterState(&connection.streamInfo().filterState());
 
   // Simulate the event that onPoolReady represents.
   upstream_callbacks_->onEvent(Network::ConnectionEvent::Connected);

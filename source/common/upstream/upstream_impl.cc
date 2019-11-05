@@ -308,6 +308,7 @@ HostImpl::createConnection(Event::Dispatcher& dispatcher, const ClusterInfo& clu
       socket_factory.createTransportSocket(std::move(transport_socket_options)),
       connection_options);
   connection->setBufferLimits(cluster.perConnectionBufferLimitBytes());
+  ENVOY_CONN_LOG(info," creating upstream filter chain", *connection);
   cluster.createNetworkFilterChain(*connection);
   return connection;
 }

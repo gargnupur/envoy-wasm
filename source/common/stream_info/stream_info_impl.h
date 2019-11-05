@@ -17,7 +17,7 @@ namespace StreamInfo {
 struct StreamInfoImpl : public StreamInfo {
   explicit StreamInfoImpl(TimeSource& time_source)
       : time_source_(time_source), start_time_(time_source.systemTime()),
-        start_time_monotonic_(time_source.monotonicTime()) {}
+        start_time_monotonic_(time_source.monotonicTime()), filter_state_(std::make_shared<Network::Socket::Options>()),upstream_filter_state_(nullptr) {}
 
   StreamInfoImpl(Http::Protocol protocol, TimeSource& time_source) : StreamInfoImpl(time_source) {
     protocol_ = protocol;
@@ -204,8 +204,14 @@ struct StreamInfoImpl : public StreamInfo {
     (*metadata_.mutable_filter_metadata())[name].MergeFrom(value);
   };
 
-  FilterState& filterState() override { return filter_state_; }
-  const FilterState& filterState() const override { return filter_state_; }
+  FilterState& filterState() override { return *filter_state_; }
+  const FilterState& filterState() const override { return *filter_state_; }
+
+  FilterState* upstreamFilterState() override { return upstream_filter_state_; }
+  const FilterState* upstreamFilterState() const override { return upstream_filter_state_; }
+  void setUpstreamFilterState(std::shared_ptr<FilterState> filter_state) override{
+    upstream_filter_state_ = filter_state;
+  }
 
   void setRequestedServerName(absl::string_view requested_server_name) override {
     requested_server_name_ = std::string(requested_server_name);
@@ -249,7 +255,8 @@ struct StreamInfoImpl : public StreamInfo {
   bool health_check_request_{};
   const Router::RouteEntry* route_entry_{};
   envoy::api::v2::core::Metadata metadata_{};
-  FilterStateImpl filter_state_{};
+  std::shared_ptr<FilterState> filter_state_;
+  std::shared_ptr<FilterState> upstream_filter_state_;
   std::string route_name_;
 
 private:

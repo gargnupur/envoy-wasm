@@ -412,7 +412,6 @@ uint32_t Wasm::allocContextId() {
 class Wasm::ShutdownHandle : public Envoy::Event::DeferredDeletable {
 public:
   ShutdownHandle(WasmSharedPtr wasm) : wasm_(wasm) {}
-
 private:
   WasmSharedPtr wasm_;
 };
