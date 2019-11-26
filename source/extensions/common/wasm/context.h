@@ -91,6 +91,12 @@ public:
   // available.
   const Network::Connection* getConnection() const;
 
+  // Retrieves the upstream connection object associated with the request (a.k.a active stream).
+  // It selects a value based on the following order: encoder callback, decoder
+  // callback. As long as any one of the callbacks is invoked, the value should be
+  // available.
+  const Network::Connection* getUpstreamConnection() const;
+
   //
   // VM level downcalls into the WASM code on Context(id == 0).
   //

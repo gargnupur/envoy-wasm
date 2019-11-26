@@ -335,9 +335,9 @@ public:
   };
 
   /**
-   * This method returns a Upstream::ClusterInfoConstSharedPtr given construction parameters.
+   * This method returns a Upstream::ClusterInfoSharedPtr given construction parameters.
    */
-  virtual Upstream::ClusterInfoConstSharedPtr
+  virtual Upstream::ClusterInfoSharedPtr
   createClusterInfo(const CreateClusterInfoParams& params) PURE;
 };
 

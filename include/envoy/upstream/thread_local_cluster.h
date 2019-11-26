@@ -23,10 +23,10 @@ public:
   virtual const PrioritySet& prioritySet() PURE;
 
   /**
-   * @return ClusterInfoConstSharedPtr the info for this cluster. The info is safe to store beyond
+   * @return ClusterInfoSharedPtr the info for this cluster. The info is safe to store beyond
    * the lifetime of the ThreadLocalCluster instance itself.
    */
-  virtual ClusterInfoConstSharedPtr info() PURE;
+  virtual ClusterInfoSharedPtr info() PURE;
 
   /**
    * @return LoadBalancer& the backing load balancer.

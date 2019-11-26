@@ -198,6 +198,7 @@ public:
 };
 
 using HostConstSharedPtr = std::shared_ptr<const Host>;
+using HostSharedPtr = std::shared_ptr<Host>;
 
 using HostVector = std::vector<HostSharedPtr>;
 using HealthyHostVector = Phantom<HostVector, Healthy>;
@@ -864,6 +865,16 @@ public:
   virtual void createNetworkFilterChain(Network::Connection& connection) const PURE;
 
   /**
+   * Stores value of upstream connection.
+   */
+  virtual void setUpstreamConnection(Network::Connection& connection) PURE;
+
+  /**
+   * @return pointer to upstream connection.
+   */
+  virtual Network::Connection* upstreamConnection() const PURE;
+
+  /**
    * Calculate upstream protocol based on features.
    */
   virtual Http::Protocol
@@ -882,6 +893,7 @@ protected:
 };
 
 using ClusterInfoConstSharedPtr = std::shared_ptr<const ClusterInfo>;
+using ClusterInfoSharedPtr = std::shared_ptr<ClusterInfo>;
 
 class HealthChecker;
 
@@ -905,6 +917,7 @@ public:
    * @return the information about this upstream cluster.
    */
   virtual ClusterInfoConstSharedPtr info() const PURE;
+  virtual ClusterInfoSharedPtr info() PURE;
 
   /**
    * @return a pointer to the cluster's outlier detector. If an outlier detector has not been
